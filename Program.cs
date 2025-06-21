@@ -1,4 +1,5 @@
 using Microsoft.EntityFrameworkCore;
+using Microsoft.OpenApi.Models;
 
 var builder = WebApplication.CreateBuilder(args);
 
@@ -7,6 +8,13 @@ builder.Services.AddControllers();
 
 // Learn more about configuring OpenAPI at https://aka.ms/aspnet/openapi
 builder.Services.AddOpenApi();
+
+// Add Swagger/OpenAPI services
+builder.Services.AddEndpointsApiExplorer();
+builder.Services.AddSwaggerGen(c =>
+{
+    c.SwaggerDoc("v1", new OpenApiInfo { Title = "TodoApi", Version = "v1" });
+});
 
 // Register MessageService for dependency injection.
 // Whenever a controller or class requests IMessageService, an instance of MessageService will be provided.
@@ -25,7 +33,14 @@ builder.Services.AddSingleton<ISingletonService, SingletonService>();
 builder.Services.AddDbContext<UsersDbContext>(options =>
     options.UseSqlite("Data Source=users.db")); // Using SQLite for local development
 
-var app = builder.Build();
+var app = builder.Build();  
+
+// Enable Swagger middleware in development and production
+app.UseSwagger();
+app.UseSwaggerUI(c =>
+{
+    c.SwaggerEndpoint("/swagger/v1/swagger.json", "TodoApi v1");
+});
 
 // Configure the HTTP request pipeline.
 if (app.Environment.IsDevelopment())
