@@ -212,7 +212,7 @@ public class Department
 #### When to Use `[ForeignKey]` Attribute
 
 You only need to use the `[ForeignKey]` attribute if:
-- The foreign key property does **not** follow the `{NavigationPropertyName}Id` naming convention.
+- The foreign key property does not follow the `{NavigationPropertyName}Id` naming convention.
 - You want to customize or clarify the relationship.
 
 **Example:**
@@ -277,17 +277,75 @@ public int DeptRef { get; set; }
 
 ---
 
-## Running the Project
+## JWT Authentication and Microsoft Identity in ASP.NET Core WebAPI
 
-1. Build and run the project:
+### JWT Authentication
+
+- **Purpose:** Secure your API endpoints so only authenticated users can access them.
+- **How it works:**
+  1. User logs in and receives a JWT (JSON Web Token) from the server.
+  2. The client sends the JWT in the `Authorization: Bearer <token>` header for each API request.
+  3. The server validates the token and grants access based on the claims (e.g., user ID, roles).
+
+**Setup Steps:**
+1. Add the NuGet package:
    ```bash
-   dotnet run
+   dotnet add package Microsoft.AspNetCore.Authentication.JwtBearer
    ```
-2. Access endpoints like:
-   - `http://localhost:5099/weatherforecast`
-   - `http://localhost:5099/weatherforecast/di-lifetimes`
-   - `http://localhost:5099/weatherforecast/di-lifetimes-detailed`
+2. Configure authentication in `Program.cs`:
+   ```csharp
+   builder.Services.AddAuthentication(JwtBearerDefaults.AuthenticationScheme)
+       .AddJwtBearer(options =>
+       {
+           options.TokenValidationParameters = new TokenValidationParameters
+           {
+               ValidateIssuer = false,
+               ValidateAudience = false,
+               ValidateLifetime = true,
+               ValidateIssuerSigningKey = true,
+               IssuerSigningKey = new SymmetricSecurityKey(Encoding.UTF8.GetBytes("YourSuperSecretKey123!"))
+           };
+       });
+   // ...
+   app.UseAuthentication();
+   app.UseAuthorization();
+   ```
+3. Protect controllers/actions with `[Authorize]`.
+4. Issue JWTs to users after login (see `/login` endpoint example in the controller).
 
-## Summary
+**How to Use:**
+- Send the JWT in the `Authorization` header:
+  ```http
+  Authorization: Bearer <your_jwt_token>
+  ```
 
-This project is a practical demonstration of dependency injection and service lifetimes in ASP.NET Core WebAPI. It is ideal for learning, interviews, and as a reference for best practices.
+---
+
+### Microsoft Identity
+
+- **Purpose:** Provides a full authentication and user management system (users, roles, passwords, etc.).
+- **How it works:**
+  - Uses `AspNetUsers`, `AspNetRoles`, and related tables for user and role management.
+  - Supports registration, login, password reset, role assignment, etc.
+  - Can be combined with JWT for token-based authentication.
+
+**Setup Steps:**
+1. Add the NuGet packages:
+   ```bash
+   dotnet add package Microsoft.AspNetCore.Identity.EntityFrameworkCore
+   dotnet add package Microsoft.AspNetCore.Identity.UI
+   ```
+2. Register Identity in `Program.cs`:
+   ```csharp
+   builder.Services.AddIdentity<IdentityUser, IdentityRole>()
+       .AddEntityFrameworkStores<UsersDbContext>();
+   ```
+3. Use Identity endpoints for registration, login, etc., or create your own.
+4. Use `[Authorize(Roles = "Admin")]` to restrict access by role.
+
+**Interview Points:**
+- **JWT** is stateless and ideal for APIs; tokens are self-contained and sent with each request.
+- **Microsoft Identity** is a full-featured system for user and role management, and can be used with or without JWT.
+- **Best Practice:** Use Identity for user management and JWT for API authentication.
+
+---
