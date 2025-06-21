@@ -1,0 +1,33 @@
+# .NET Core / ASP.NET Core best practices
+bin/
+obj/
+*.user
+*.suo
+*.userosscache
+*.sln.docstates
+*.swp
+*.tmp
+*.log
+*.vs/
+.vscode/
+# Rider
+.idea/
+*.sln.iml
+# OS generated files
+.DS_Store
+Thumbs.db
+# Entity Framework
+Migrations/
+# LocalDB, SQLite, etc.
+*.db
+*.mdf
+*.ldf
+# Publish output
+publish/
+# Test results
+TestResults/
+# npm packages
+node_modules/
+# Secrets
+secrets.json
+appsettings.*.local.json

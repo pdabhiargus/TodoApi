@@ -1,3 +1,5 @@
+using Microsoft.EntityFrameworkCore;
+
 var builder = WebApplication.CreateBuilder(args);
 
 // Add services to the container.
@@ -18,6 +20,10 @@ builder.Services.AddTransient<ITransientService, TransientService>();
 
 // Register SingletonService: Only one instance for the entire application lifetime
 builder.Services.AddSingleton<ISingletonService, SingletonService>();
+
+// Register UsersDbContext for dependency injection, using localdb for demonstration
+builder.Services.AddDbContext<UsersDbContext>(options =>
+    options.UseSqlite("Data Source=users.db")); // Using SQLite for local development
 
 var app = builder.Build();
 
