@@ -554,3 +554,792 @@ var user = repo.GetById(1);
 ```
 
 ---
+
+## Delegates in C#: `Func` vs `Predicate`
+
+### What is a Delegate?
+A delegate is a type that represents references to methods with a particular parameter list and return type. Delegates are used to pass methods as arguments to other methods.
+
+### `Func<T, TResult>`
+- Represents a delegate that takes one or more input parameters and returns a value.
+- Can have up to 16 input parameters, with the last type parameter being the return type.
+
+**Example:**
+```csharp
+Func<int, int, int> add = (a, b) => a + b;
+int result = add(2, 3); // result = 5
+
+Func<string, int> getLength = s => s.Length;
+int len = getLength("hello"); // len = 5
+```
+
+### `Predicate<T>`
+- Represents a delegate that takes a single parameter and returns a `bool`.
+- Used for conditions and filtering (e.g., in `List<T>.Find`, `List<T>.RemoveAll`).
+
+**Example:**
+```csharp
+Predicate<int> isEven = x => x % 2 == 0;
+bool check = isEven(4); // check = true
+
+List<int> numbers = new List<int> { 1, 2, 3, 4, 5 };
+List<int> evens = numbers.FindAll(isEven); // evens = [2, 4]
+```
+
+### Comparison Table
+| Type           | Parameters         | Return Type |
+|----------------|--------------------|-------------|
+| `Func<T,...,TResult>` | 1 or more         | Any type    |
+| `Predicate<T>` | 1                  | `bool`      |
+
+### Summary
+- Use `Func<T, TResult>` when you need a delegate that returns any type.
+- Use `Predicate<T>` when you need a delegate that returns a boolean (for conditions or filtering).
+
+---
+
+## String Interning in C#
+
+**String interning** is a process where only one copy of each unique literal string value is stored in memory. The .NET runtime maintains a string intern pool to optimize memory usage for strings.
+
+- When you create a string literal, it is automatically interned.
+- If you create a new string with the same value, .NET can reuse the interned instance.
+- You can use `string.Intern()` to manually intern a string.
+
+**Example:**
+```csharp
+string a = "hello";
+string b = "hello";
+string c = new string("hello".ToCharArray());
+
+bool refEqual1 = object.ReferenceEquals(a, b); // true (both interned)
+bool refEqual2 = object.ReferenceEquals(a, c); // false (c is not interned)
+
+string d = string.Intern(c);
+bool refEqual3 = object.ReferenceEquals(a, d); // true (d is now interned)
+```
+
+---
+
+## Extension Methods in C#
+
+**Extension methods** allow you to add new methods to existing types without modifying their source code or creating a new derived type.
+- Defined as static methods in a static class.
+- The first parameter specifies the type to extend, preceded by the `this` keyword.
+- Commonly used to add utility methods to .NET types (e.g., LINQ methods).
+
+**Example:**
+```csharp
+public static class StringExtensions
+{
+    public static bool IsCapitalized(this string str)
+    {
+        if (string.IsNullOrEmpty(str)) return false;
+        return char.IsUpper(str[0]);
+    }
+}
+
+// Usage:
+string word = "Hello";
+bool isCap = word.IsCapitalized(); // true
+```
+
+---
+
+## IEnumerable vs IQueryable in C#
+
+### IEnumerable
+- Defined in `System.Collections` namespace.
+- Represents a forward-only cursor of a collection (can be used with `foreach`).
+- **Executes queries in memory** (client-side).
+- Suitable for working with in-memory collections (e.g., `List<T>`, arrays).
+- Does not support query translation to a data source (like a database).
+
+**Example:**
+```csharp
+IEnumerable<int> numbers = new List<int> { 1, 2, 3, 4 };
+var evens = numbers.Where(x => x % 2 == 0); // LINQ to Objects, executed in memory
+```
+
+### IQueryable
+- Defined in `System.Linq` namespace.
+- Inherits from `IEnumerable`.
+- **Executes queries remotely** (e.g., in a database) by building an expression tree.
+- Suitable for querying data sources like Entity Framework, LINQ to SQL, etc.
+- Supports query translation and deferred execution on the data source.
+
+**Example:**
+```csharp
+IQueryable<User> users = dbContext.Users;
+var filtered = users.Where(u => u.Name.StartsWith("A")); // Query translated to SQL and executed in DB
+```
+
+### Key Differences
+| Feature         | IEnumerable                | IQueryable                  |
+|----------------|----------------------------|-----------------------------|
+| Execution      | In-memory (client-side)    | At data source (server-side)|
+| Query Building | Not supported              | Supported (expression tree) |
+| Use Case       | In-memory collections      | Remote data sources         |
+
+### Summary
+- Use `IEnumerable` for in-memory data.
+- Use `IQueryable` for remote data sources to enable efficient, server-side querying.
+
+---
+
+## Achieving Multithreading in C#
+
+Multithreading allows your application to perform multiple operations concurrently, improving responsiveness and performance for CPU-bound or I/O-bound tasks.
+
+### 1. Using `Thread` Class
+You can create and start threads manually:
+```csharp
+using System.Threading;
+
+void PrintNumbers()
+{
+    for (int i = 1; i <= 5; i++)
+        Console.WriteLine(i);
+}
+
+Thread t = new Thread(PrintNumbers);
+t.Start();
+```
+
+### 2. Using `Task` Parallel Library (TPL)
+Recommended for most scenarios. `Task` abstracts thread management and supports async/await:
+```csharp
+using System.Threading.Tasks;
+
+Task.Run(() =>
+{
+    // Your code here
+    Console.WriteLine("Running in a task");
+});
+```
+
+### 3. Using `Parallel` Class
+For parallel loops and data processing:
+```csharp
+using System.Threading.Tasks;
+
+Parallel.For(0, 10, i =>
+{
+    Console.WriteLine($"Processing {i}");
+});
+```
+
+### 4. Using `async` and `await` (for I/O-bound concurrency)
+```csharp
+public async Task DownloadAsync()
+{
+    await Task.Delay(1000); // Simulate async work
+    Console.WriteLine("Download complete");
+}
+```
+
+### Summary
+- Use `Thread` for low-level control (rarely needed).
+- Use `Task` and `async`/`await` for most modern, scalable multithreading.
+- Use `Parallel` for data parallelism.
+
+---
+
+## Async/Await in C#: Explanation and Control Flow
+
+### What is `async`/`await`?
+- `async` and `await` are C# keywords that simplify writing asynchronous, non-blocking code.
+- They allow you to perform long-running operations (like I/O, network calls) without blocking the main thread.
+
+### How It Works
+- Mark a method with `async` and return `Task` or `Task<T>`.
+- Use `await` to asynchronously wait for a `Task` to complete.
+- The method is split into parts: code before `await` runs synchronously, code after `await` resumes when the awaited task completes.
+
+### Example
+```csharp
+public async Task<string> GetDataAsync()
+{
+    // Code before await runs synchronously
+    await Task.Delay(1000); // Simulate async work (e.g., network call)
+    // Code after await runs when the above task completes
+    return "Data loaded";
+}
+
+// Usage:
+string result = await GetDataAsync();
+Console.WriteLine(result); // Output: Data loaded
+```
+
+### Control Flow
+1. The method starts and runs until it hits the first `await`.
+2. The awaited task (e.g., `Task.Delay`) starts running asynchronously.
+3. The method returns control to the caller (does not block the thread).
+4. When the awaited task completes, the method resumes after the `await` line.
+5. The method can have multiple `await` statements, each pausing and resuming as needed.
+
+**Visual Flow:**
+```
+Start method
+   |
+[Code before await]
+   |
+[await Task]  <--- returns control to caller, does not block
+   |
+[Code after await resumes when task completes]
+   |
+End
+```
+
+### Summary
+- Use `async`/`await` for non-blocking, readable asynchronous code.
+- Control flow is paused at each `await` and resumed when the awaited task finishes.
+
+---
+
+## Difference Between Abstract Class and Interface in C#
+
+| Feature                | Abstract Class                        | Interface                          |
+|------------------------|---------------------------------------|-------------------------------------|
+| Syntax                 | `abstract class`                      | `interface`                        |
+| Members                | Can have fields, properties, methods  | Only declarations (no fields, except static/const in C# 8+) |
+| Implementation         | Can have method implementations       | No implementation (C# 8+ allows default methods) |
+| Constructors           | Can have constructors                 | Cannot have constructors           |
+| Multiple Inheritance   | Only one abstract/base class allowed  | Multiple interfaces can be implemented |
+| Access Modifiers       | Can have access modifiers             | All members are public by default   |
+| Use Case               | Base class with shared code/logic     | Contract for capabilities/behavior  |
+
+### Example: Abstract Class
+```csharp
+public abstract class Animal
+{
+    public abstract void Speak(); // Must be implemented by derived class
+    public void Eat() => Console.WriteLine("Eating"); // Optional implementation
+}
+
+public class Dog : Animal
+{
+    public override void Speak() => Console.WriteLine("Woof!");
+}
+```
+
+### Example: Interface
+```csharp
+public interface IFlyable
+{
+    void Fly();
+}
+
+public class Bird : IFlyable
+{
+    public void Fly() => Console.WriteLine("Flying");
+}
+```
+
+### Summary
+- Use **abstract class** for base classes with shared code and partial implementation.
+- Use **interface** for defining contracts that multiple unrelated classes can implement.
+
+---
+
+## Default Project Structure of a .NET Core Application
+
+A typical .NET Core WebAPI project has the following structure (example from this project):
+
+```
+TodoApi/
+├── Controllers/
+│   └── WeatherForecastController.cs
+├── Properties/
+│   └── launchSettings.json
+├── appsettings.json
+├── appsettings.Development.json
+├── Program.cs
+├── TodoApi.csproj
+├── UsersDbContext.cs
+├── ...other files
+```
+
+### Key Files and Folders
+
+- **Controllers/**: Contains API controllers (e.g., `WeatherForecastController.cs`) that handle HTTP requests.
+- **Program.cs**: Entry point of the application. Configures services, middleware, and starts the app.
+- **appsettings.json**: Main configuration file for settings like connection strings, logging, etc.
+- **appsettings.Development.json**: Overrides settings in `appsettings.json` for the Development environment.
+- **Properties/launchSettings.json**: Stores launch profiles for running and debugging the app locally.
+- **TodoApi.csproj**: Project file with dependencies and build settings.
+- **UsersDbContext.cs**: Entity Framework Core DbContext for database access.
+
+### Example: `appsettings.json`
+```json
+{
+  "Logging": {
+    "LogLevel": {
+      "Default": "Information",
+      "Microsoft.AspNetCore": "Warning"
+    }
+  },
+  "AllowedHosts": "*"
+}
+```
+- Used for application configuration (logging, connection strings, etc.).
+
+### Example: `appsettings.Development.json`
+```json
+{
+  "Logging": {
+    "LogLevel": {
+      "Default": "Information",
+      "Microsoft.AspNetCore": "Warning"
+    }
+  }
+}
+```
+- Used to override settings in `appsettings.json` when running in Development environment.
+
+### Example: `Properties/launchSettings.json`
+```json
+{
+  "$schema": "https://json.schemastore.org/launchsettings.json",
+  "profiles": {
+    "http": {
+      "commandName": "Project",
+      "dotnetRunMessages": true,
+      "launchBrowser": false,
+      "applicationUrl": "http://localhost:5099",
+      "environmentVariables": {
+        "ASPNETCORE_ENVIRONMENT": "Development"
+      }
+    },
+    "https": {
+      "commandName": "Project",
+      "dotnetRunMessages": true,
+      "launchBrowser": false,
+      "applicationUrl": "https://localhost:7119;http://localhost:5099",
+      "environmentVariables": {
+        "ASPNETCORE_ENVIRONMENT": "Development"
+      }
+    }
+  }
+}
+```
+- Defines how the app is launched (URLs, environment, browser launch, etc.) for local development and debugging.
+
+---
+
+## What is .NET Core?
+- **.NET Core** is a free, open-source, cross-platform framework for building modern, cloud-based, and internet-connected applications (web, desktop, mobile, microservices, etc.).
+- Developed by Microsoft, it runs on Windows, Linux, and macOS.
+- Supports C#, F#, and Visual Basic languages.
+- Successor to the traditional .NET Framework, designed for flexibility and performance.
+
+## .NET Core vs .NET 5
+- **.NET Core** (up to version 3.1) was the cross-platform, modular, and open-source evolution of .NET.
+- **.NET 5** is the next step after .NET Core 3.1, unifying .NET Core and .NET Framework into a single platform called ".NET" (sometimes called ".NET 5+" or ".NET 6/7/8").
+- **Key Differences:**
+  - .NET 5 and later are just called ".NET" (no "Core" in the name).
+  - .NET 5+ continues cross-platform support and adds new features, performance improvements, and a unified runtime for all workloads.
+  - .NET Core is no longer developed after 3.1; .NET 5+ is the future.
+
+| Feature         | .NET Core (<=3.1)         | .NET 5 and Later           |
+|----------------|---------------------------|----------------------------|
+| Name           | .NET Core                  | .NET (5, 6, 7, 8, ...)     |
+| Cross-platform | Yes                        | Yes                        |
+| LTS            | 3.1 is LTS                 | Even versions are LTS      |
+| Unified APIs   | Partial                    | Full (Web, Desktop, etc.)  |
+| Future Support | No (after 3.1)             | Yes                        |
+
+## Advantages of .NET Core
+- **Cross-platform:** Runs on Windows, Linux, and macOS.
+- **High performance:** Optimized for speed and scalability.
+- **Open source:** Source code is available on GitHub.
+- **Modular:** Use only the packages you need (via NuGet).
+- **Unified development:** Build web, cloud, desktop, IoT, and mobile apps.
+- **Side-by-side versioning:** Multiple versions can run on the same machine.
+- **Modern tooling:** Supports Visual Studio, VS Code, CLI, and CI/CD.
+- **Cloud-ready:** Designed for microservices and containerization (Docker, Kubernetes).
+
+---
+
+## Routing in .NET Core
+
+**Routing** is the process of mapping incoming HTTP requests to the corresponding controller actions or endpoints in your application.
+
+### Types of Routing
+1. **Attribute Routing**
+   - Define routes directly on controllers and actions using attributes.
+   - Example from current code:
+     ```csharp
+     [ApiController]
+     [Route("[controller]")]
+     public class WeatherForecastController : ControllerBase
+     {
+         [HttpGet("message")]
+         public string GetMessage() { ... }
+     }
+     ```
+   - Here, `[Route("[controller]")]` means the route is `/WeatherForecast`, and `[HttpGet("message")]` maps to `/WeatherForecast/message`.
+
+2. **Convention-based Routing**
+   - Define routes in `Program.cs` or `Startup.cs` using route templates.
+   - Example from current code:
+     ```csharp
+     app.MapControllers();
+     ```
+   - This enables attribute routing for all controllers.
+   - You can also use:
+     ```csharp
+     app.MapGet("/hello", () => "Hello World!");
+     ```
+   - This maps the `/hello` route to a minimal API endpoint.
+
+3. **Minimal APIs (from .NET 6+)**
+   - Define routes directly in `Program.cs` using methods like `MapGet`, `MapPost`, etc.
+   - Example:
+     ```csharp
+     app.MapGet("/ping", () => "pong");
+     ```
+
+### Example from Current Code
+- In `WeatherForecastController.cs`:
+  ```csharp
+  [ApiController]
+  [Route("[controller]")]
+  public class WeatherForecastController : ControllerBase
+  {
+      [HttpGet("di-lifetimes")] // Route: /WeatherForecast/di-lifetimes
+      public object GetDiLifetimes() { ... }
+  }
+  ```
+- In `Program.cs`:
+  ```csharp
+  app.MapControllers(); // Enables attribute routing for controllers
+  // app.MapGet("/hello", () => "Hello World!"); // Example of minimal API routing
+  ```
+
+### Summary
+- Use **attribute routing** for fine-grained control on controllers/actions.
+- Use **convention-based routing** for centralized route templates.
+- Use **minimal APIs** for lightweight, function-based endpoints.
+
+---
+
+## In-Memory vs Distributed Caching in .NET Core
+
+### In-Memory Caching
+- Stores cache data in the memory of the application server (process memory).
+- Fastest access (no network latency).
+- Data is lost if the application restarts or scales out to multiple servers (each server has its own cache).
+- Suitable for single-server or development scenarios.
+- Implemented using `IMemoryCache` in .NET Core.
+
+**Example:**
+```csharp
+// Register in Program.cs
+builder.Services.AddMemoryCache();
+
+// Usage in a service or controller
+private readonly IMemoryCache _cache;
+public MyService(IMemoryCache cache) => _cache = cache;
+
+public string GetData()
+{
+    return _cache.GetOrCreate("myKey", entry => "cached value");
+}
+```
+
+### Distributed Caching
+- Stores cache data outside the application server (e.g., Redis, SQL Server, NCache).
+- Data is shared across multiple servers/instances (good for cloud and scaled-out apps).
+- Survives application restarts and enables consistent cache for all app instances.
+- Implemented using `IDistributedCache` in .NET Core.
+
+**Example:**
+```csharp
+// Register in Program.cs (for Redis)
+builder.Services.AddStackExchangeRedisCache(options =>
+{
+    options.Configuration = "localhost:6379";
+});
+
+// Usage in a service or controller
+private readonly IDistributedCache _cache;
+public MyService(IDistributedCache cache) => _cache = cache;
+
+public async Task<string> GetDataAsync()
+{
+    var value = await _cache.GetStringAsync("myKey");
+    if (value == null)
+    {
+        value = "cached value";
+        await _cache.SetStringAsync("myKey", value);
+    }
+    return value;
+}
+```
+
+### Comparison Table
+| Feature           | In-Memory Cache         | Distributed Cache         |
+|-------------------|------------------------|--------------------------|
+| Storage Location  | App server memory      | External (Redis, etc.)   |
+| Scalability       | Single server          | Multi-server/cloud       |
+| Persistence       | Lost on restart        | Survives restarts        |
+| Performance       | Fastest                | Fast (network involved)  |
+| Use Case          | Dev, small apps        | Cloud, scaled-out apps   |
+
+---
+
+## Serilog: Structured Logging for .NET
+
+**Serilog** is a popular, flexible logging library for .NET applications. It enables structured logging, which means logs are captured as rich data (not just plain text), making them easier to search, filter, and analyze.
+
+### Why Use Serilog?
+- **Structured logs:** Store logs as key-value pairs (JSON, etc.) for better querying and analysis.
+- **Sinks:** Write logs to various outputs (console, files, databases, cloud, etc.).
+- **Enrichers:** Add extra context (e.g., machine name, thread ID) to every log entry.
+- **Easy integration:** Works with ASP.NET Core, .NET Console apps, and more.
+- **Powerful filtering:** Control what gets logged and where.
+
+### Basic Usage Example
+1. **Install NuGet packages:**
+   - `Serilog.AspNetCore`
+   - `Serilog.Sinks.Console` (or any other sink you need)
+
+2. **Configure in Program.cs:**
+   ```csharp
+   using Serilog;
+
+   Log.Logger = new LoggerConfiguration()
+       .WriteTo.Console()
+       .CreateLogger();
+
+   var builder = WebApplication.CreateBuilder(args);
+   builder.Host.UseSerilog();
+   // ...existing code...
+   var app = builder.Build();
+   // ...existing code...
+   ```
+
+3. **Log in your code:**
+   ```csharp
+   // In a controller or service
+   private readonly ILogger<MyClass> _logger;
+   public MyClass(ILogger<MyClass> logger) => _logger = logger;
+
+   public void DoSomething()
+   {
+       _logger.LogInformation("Doing something at {Time}", DateTime.Now);
+   }
+   ```
+
+### Common Sinks
+- Console
+- File
+- Seq (structured log server)
+- Elasticsearch
+- Azure Application Insights
+
+### Summary
+- Serilog provides structured, flexible, and powerful logging for .NET apps.
+- It helps you capture, search, and analyze logs more effectively than plain text logging.
+
+---
+
+## What are Meta Packages in .NET?
+
+**Meta packages** are NuGet packages that do not contain any code themselves, but instead reference and bundle together other related NuGet packages. Installing a meta package brings in a set of dependencies that are commonly used together, simplifying package management.
+
+### Why Use Meta Packages?
+- Simplifies project setup by installing a group of related packages with a single reference.
+- Ensures compatibility between the included packages.
+- Reduces the need to manage individual package versions manually.
+
+### Example: Microsoft.AspNetCore.App
+- `Microsoft.AspNetCore.App` is a meta package for ASP.NET Core applications.
+- It includes all the essential ASP.NET Core and Entity Framework Core packages.
+- When you reference this meta package, you get a consistent set of libraries for web development.
+
+**Example in .csproj:**
+```xml
+<Project Sdk="Microsoft.NET.Sdk.Web">
+  <PropertyGroup>
+    <TargetFramework>net9.0</TargetFramework>
+  </PropertyGroup>
+  <ItemGroup>
+    <FrameworkReference Include="Microsoft.AspNetCore.App" />
+  </ItemGroup>
+</Project>
+```
+
+### Summary
+- Meta packages are collections of related NuGet packages bundled together for convenience.
+- They help you get started quickly and keep dependencies consistent in .NET projects.
+
+---
+
+## Normal Authentication vs JWT Authentication in .NET
+
+### Normal (Cookie-Based) Authentication
+- User logs in with credentials; server validates and creates a session.
+- Server issues a session cookie, which is stored in the browser and sent with each request.
+- Server keeps session state (user info) in memory or a database.
+- Common in traditional web apps (ASP.NET MVC, etc.).
+- **Pros:**
+  - Simple to implement for web apps.
+  - Session can be invalidated on the server.
+- **Cons:**
+  - Not ideal for APIs or stateless services.
+  - Does not scale well for distributed/cloud apps (session sharing required).
+
+### JWT (JSON Web Token) Authentication
+- User logs in; server validates and issues a signed JWT (token) containing user claims.
+- Client stores the JWT (usually in localStorage or memory) and sends it in the `Authorization: Bearer <token>` header with each request.
+- Server does not keep session state; validates the JWT signature and claims on each request.
+- Common in modern APIs, SPAs, and mobile apps.
+- **Pros:**
+  - Stateless and scalable (no server-side session storage).
+  - Works well for APIs, microservices, and distributed systems.
+  - Can include user roles, permissions, and other claims in the token.
+- **Cons:**
+  - Token revocation is harder (must expire or use a blacklist).
+  - If a token is stolen, it can be used until it expires.
+
+### Comparison Table
+| Feature         | Normal (Cookie) Auth      | JWT Auth                  |
+|-----------------|--------------------------|---------------------------|
+| State           | Server-side session       | Stateless (token-based)   |
+| Storage         | Cookie (browser)         | Token (header/localStorage)|
+| Scalability     | Limited (session sharing)| High (stateless)          |
+| Use Case        | Web apps                 | APIs, SPAs, mobile apps   |
+| Revocation      | Easy (server-side)       | Harder (token expiry)     |
+
+### Example in .NET Core
+- **Normal Auth:**
+  - Use `AddAuthentication().AddCookie()`
+- **JWT Auth:**
+  - Use `AddAuthentication().AddJwtBearer()`
+
+---
+
+## Improving Performance of Web API and Complex Queries
+
+### Web API Performance Tips
+- **Use Asynchronous Programming:** Use `async`/`await` for I/O-bound operations to free up threads and improve scalability.
+- **Caching:** Use in-memory or distributed caching to avoid repeated expensive operations (e.g., database lookups).
+- **Minimize Data Transfer:** Return only necessary data (use DTOs, pagination, filtering, and compression).
+- **Enable Response Compression:** Use middleware to compress responses (e.g., Gzip).
+- **Connection Pooling:** Ensure database connections are pooled and reused.
+- **Reduce Middleware:** Only use essential middleware in the request pipeline.
+- **Use Dependency Injection Wisely:** Register services with the correct lifetimes (singleton, scoped, transient).
+- **Profile and Monitor:** Use tools like Application Insights, Serilog, or built-in logging to monitor and profile performance.
+
+### Complex Query Optimization Tips
+- **Use Efficient Queries:** Write queries that minimize data scanned and returned (use `WHERE`, `SELECT` only needed columns).
+- **Indexes:** Ensure proper indexes exist on frequently queried columns.
+- **Avoid N+1 Problem:** Use eager loading (`Include`) or explicit joins to reduce repeated queries.
+- **Use AsNoTracking:** For read-only queries in Entity Framework, use `.AsNoTracking()` to avoid unnecessary change tracking.
+- **Batch Operations:** Use bulk/batch operations for inserts/updates/deletes when possible.
+- **Database Profiling:** Use SQL Profiler or EF logging to analyze and optimize slow queries.
+- **Stored Procedures:** For very complex or performance-critical logic, consider using stored procedures.
+
+### Example: Optimized EF Core Query
+```csharp
+// Only needed columns, no tracking, with filter and pagination
+var users = await dbContext.Users
+    .AsNoTracking()
+    .Where(u => u.IsActive)
+    .OrderBy(u => u.Name)
+    .Select(u => new { u.Id, u.Name })
+    .Skip(0).Take(20)
+    .ToListAsync();
+```
+
+### Summary
+- Use async, caching, and minimize data transfer for Web API performance.
+- Write efficient queries, use indexes, and avoid N+1 for database performance.
+- Always profile and monitor to find real bottlenecks.
+
+---
+
+## Middleware in .NET Core
+
+**Middleware** is software that is assembled into an application pipeline to handle requests and responses. Each middleware component can perform operations before and after the next component in the pipeline.
+
+### How Middleware Works
+- Each HTTP request passes through a sequence of middleware components.
+- Middleware can:
+  - Inspect, modify, or short-circuit requests/responses.
+  - Call the next middleware in the pipeline or end the pipeline.
+
+### Common Middleware Examples
+- **Exception Handling:** `app.UseExceptionHandler()`
+- **HTTPS Redirection:** `app.UseHttpsRedirection()`
+- **Static Files:** `app.UseStaticFiles()`
+- **Routing:** `app.UseRouting()`
+- **Authentication/Authorization:** `app.UseAuthentication()`, `app.UseAuthorization()`
+- **Custom Middleware:**
+  ```csharp
+  app.Use(async (context, next) =>
+  {
+      // Code before next middleware
+      await next();
+      // Code after next middleware
+  });
+  ```
+
+### Example from `Program.cs` in This Project
+```csharp
+app.UseHttpsRedirection();
+app.UseAuthorization();
+app.MapControllers();
+```
+- `app.UseHttpsRedirection()`: Redirects HTTP requests to HTTPS.
+- `app.UseAuthorization()`: Enables authorization checks.
+- `app.MapControllers()`: Adds endpoint routing for controllers (not technically middleware, but part of the pipeline setup).
+
+### Why Use Middleware?
+- Centralizes cross-cutting concerns (logging, error handling, security, etc.).
+- Keeps controllers and business logic clean.
+- Enables flexible, modular request processing.
+
+---
+
+## PATCH HTTP Method
+
+- **PATCH** is an HTTP method used to partially update a resource on the server.
+- Unlike `PUT` (which replaces the entire resource), `PATCH` only modifies the specified fields, leaving the rest unchanged.
+- Commonly used in REST APIs for updating a subset of properties (e.g., updating just the email of a user).
+
+### Example Usage
+**Request:**
+```http
+PATCH /users/1
+Content-Type: application/json
+
+{
+  "email": "newemail@example.com"
+}
+```
+- Only the `email` field of user with ID 1 will be updated.
+
+### In ASP.NET Core
+You can handle PATCH requests using the `[HttpPatch]` attribute in your controller:
+```csharp
+[HttpPatch("users/{id}")]
+public IActionResult PatchUser(int id, [FromBody] JsonPatchDocument<User> patchDoc)
+{
+    var user = dbContext.Users.Find(id);
+    if (user == null) return NotFound();
+    patchDoc.ApplyTo(user);
+    dbContext.SaveChanges();
+    return Ok(user);
+}
+```
+- Use the `Microsoft.AspNetCore.JsonPatch` package for JSON Patch support.
+
+### Summary
+- Use PATCH for partial updates.
+- More efficient than PUT when only a few fields need to change.
+- Supported in ASP.NET Core via `[HttpPatch]` and `JsonPatchDocument`.
+
+---
