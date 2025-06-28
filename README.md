@@ -349,3 +349,208 @@ public int DeptRef { get; set; }
 - **Best Practice:** Use Identity for user management and JWT for API authentication.
 
 ---
+
+## ASP.NET Core Application Pipeline: `app.Run`, `app.Map`, and `app.Use`
+
+### `app.Run`
+- **Purpose:** Starts the web application and begins listening for incoming HTTP requests.
+- **Usage:** Common in frameworks like ASP.NET Core (`app.Run()`).
+- **Example:**
+    ```csharp
+    // ...existing code...
+    app.Run();
+    // ...existing code...
+    ```
+
+### `app.Map`
+- **Purpose:** Maps a specific route or endpoint to a handler (function, controller, etc.).
+- **Usage:** Used to define how the app responds to different URLs.
+- **Example:**
+    ```csharp
+    // ...existing code...
+    app.MapGet("/hello", () => "Hello World!");
+    // ...existing code...
+    ```
+
+### `app.Use`
+- **Purpose:** Adds middleware to the request processing pipeline.
+- **Usage:** Middleware can handle requests, responses, logging, authentication, etc.
+- **Example:**
+    ```csharp
+    // ...existing code...
+    app.Use(async (context, next) =>
+    {
+        // Do something before
+        await next();
+        // Do something after
+    });
+    // ...existing code...
+    ```
+
+**Summary:**
+- `app.Run` starts the app.
+- `app.Map` defines routes/endpoints.
+- `app.Use` adds middleware to handle requests/responses.
+
+---
+
+## Design Patterns: Singleton, Factory, and Repository
+
+### Singleton Pattern
+Ensures a class has only one instance and provides a global point of access to it.
+
+```csharp
+public class Logger
+{
+    private static Logger _instance;
+    private static readonly object _lock = new object();
+    private Logger() { }
+    public static Logger Instance
+    {
+        get
+        {
+            lock (_lock)
+            {
+                if (_instance == null)
+                    _instance = new Logger();
+                return _instance;
+            }
+        }
+    }
+    public void Log(string message) => Console.WriteLine(message);
+}
+```
+**Usage:**
+```csharp
+Logger.Instance.Log("Hello");
+```
+
+---
+
+### Factory Method Pattern (with ISendEmail Example)
+Creates objects without specifying the exact class. Useful for encapsulating object creation logic.
+
+```csharp
+public interface ISendEmail
+{
+    void Send(string to, string subject, string body);
+}
+
+public class SMTPMail : ISendEmail
+{
+    public void Send(string to, string subject, string body)
+    {
+        Console.WriteLine($"SMTP: Sending mail to {to}");
+    }
+}
+
+public class SendGridMail : ISendEmail
+{
+    public void Send(string to, string subject, string body)
+    {
+        Console.WriteLine($"SendGrid: Sending mail to {to}");
+    }
+}
+
+public class EmailFactory
+{
+    public static ISendEmail Create(string type)
+    {
+        return type switch
+        {
+            "smtp" => new SMTPMail(),
+            "sendgrid" => new SendGridMail(),
+            _ => throw new ArgumentException("Unknown type")
+        };
+    }
+}
+```
+**Usage:**
+```csharp
+var mailer = EmailFactory.Create("smtp");
+mailer.Send("user@example.com", "Subject", "Body");
+```
+
+---
+
+### Repository Pattern
+Abstracts data access logic, separating it from business logic.
+
+```csharp
+public interface IUserRepository
+{
+    User GetById(int id);
+    void Add(User user);
+}
+
+public class UserRepository : IUserRepository
+{
+    private readonly UsersDbContext _context;
+    public UserRepository(UsersDbContext context) => _context = context;
+    public User GetById(int id) => _context.Users.Find(id);
+    public void Add(User user) => _context.Users.Add(user);
+}
+```
+**Usage:**
+```csharp
+var user = userRepository.GetById(1);
+```
+
+---
+
+### Repository Pattern Example Using ADO.NET
+This example shows how to implement the repository pattern using raw ADO.NET for data access instead of Entity Framework.
+
+```csharp
+public interface IUserRepository
+{
+    User GetById(int id);
+    void Add(User user);
+}
+
+public class UserRepositoryAdoNet : IUserRepository
+{
+    private readonly string _connectionString;
+    public UserRepositoryAdoNet(string connectionString)
+    {
+        _connectionString = connectionString;
+    }
+
+    public User GetById(int id)
+    {
+        using var conn = new SqlConnection(_connectionString);
+        conn.Open();
+        using var cmd = new SqlCommand("SELECT Id, Name, Email FROM Users WHERE Id = @Id", conn);
+        cmd.Parameters.AddWithValue("@Id", id);
+        using var reader = cmd.ExecuteReader();
+        if (reader.Read())
+        {
+            return new User
+            {
+                Id = reader.GetInt32(0),
+                Name = reader.GetString(1),
+                Email = reader.GetString(2)
+            };
+        }
+        return null;
+    }
+
+    public void Add(User user)
+    {
+        using var conn = new SqlConnection(_connectionString);
+        conn.Open();
+        using var cmd = new SqlCommand("INSERT INTO Users (Name, Email) VALUES (@Name, @Email)", conn);
+        cmd.Parameters.AddWithValue("@Name", user.Name);
+        cmd.Parameters.AddWithValue("@Email", user.Email);
+        cmd.ExecuteNonQuery();
+    }
+}
+```
+**Usage:**
+```csharp
+IUserRepository repo ; From DI.
+repo.Add(new User { Name = "Alice", Email = "alice@example.com" });
+var user = repo.GetById(1);
+```
+
+---
