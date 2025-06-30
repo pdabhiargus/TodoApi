@@ -1152,3 +1152,246 @@ public async Task<string> GetDataAsync()
 - Use logging to monitor, debug, and audit your applications effectively.
 
 ---
+
+## File Uploads in .NET: Client and Server Example
+
+### 1. Uploading a File from .NET Code (Client Side)
+
+Below is a C# example that reads a file from disk and uploads it to an API endpoint using `HttpClient` and `MultipartFormDataContent`:
+
+```csharp
+using System;
+using System.IO;
+using System.Net.Http;
+using System.Net.Http.Headers;
+using System.Threading.Tasks;
+
+class Program
+{
+    static async Task Main(string[] args)
+    {
+        string filePath = "sample.txt"; // Path to your file
+        string apiUrl = "https://localhost:5001/api/upload"; // API endpoint
+
+        using var httpClient = new HttpClient();
+        using var form = new MultipartFormDataContent();
+        using var fileStream = File.OpenRead(filePath);
+        var fileContent = new StreamContent(fileStream);
+        fileContent.Headers.ContentType = new MediaTypeHeaderValue("application/octet-stream");
+        form.Add(fileContent, "file", Path.GetFileName(filePath));
+
+        HttpResponseMessage response = await httpClient.PostAsync(apiUrl, form);
+        string result = await response.Content.ReadAsStringAsync();
+
+        Console.WriteLine($"API Response: {result}");
+    }
+}
+```
+
+#### **Technical Details**
+- The file is read from disk using `File.OpenRead`.
+- `MultipartFormDataContent` is used to send the file as form data.
+- The file is attached to the form with a field name (`"file"`).
+- The request is sent to the API endpoint using `HttpClient.PostAsync`.
+
+---
+
+### 2. Receiving and Storing the File on the API (Server Side)
+
+Here’s an example of an ASP.NET Core minimal API endpoint that accepts and saves the uploaded file:
+
+```csharp
+app.MapPost("/api/upload", async (IFormFile file) =>
+{
+    var uploadsDir = Path.Combine(Directory.GetCurrentDirectory(), "Uploads");
+    Directory.CreateDirectory(uploadsDir);
+
+    var filePath = Path.Combine(uploadsDir, file.FileName);
+    using var stream = new FileStream(filePath, FileMode.Create);
+    await file.CopyToAsync(stream);
+
+    return Results.Ok($"File {file.FileName} uploaded successfully!");
+});
+```
+
+#### **Technical Details**
+- The API receives the file as an `IFormFile` parameter.
+- It ensures the `Uploads` directory exists.
+- The file is saved to disk using a `FileStream`.
+- A success message is returned to the client.
+
+---
+
+**Summary:**  
+- The client reads and uploads the file using `HttpClient` and multipart form data.
+- The server receives the file, saves it to disk, and responds with a status message.
+
+---
+
+## Difference Between `protected internal` and `private protected` in C#
+
+| Modifier             | Accessible Within Same Assembly | Accessible in Derived Classes (Any Assembly) | Accessible in Derived Classes (Same Assembly) |
+|----------------------|:------------------------------:|:--------------------------------------------:|:---------------------------------------------:|
+| `protected internal` | Yes                            | Yes                                         | Yes                                          |
+| `private protected`  | Yes                            | No                                          | Yes                                          |
+
+### `protected internal`
+- Accessible from any code in the same assembly (like `internal`).
+- Also accessible from derived classes, even if they are in a different assembly (like `protected`).
+
+### `private protected`
+- Accessible only within the same assembly **and** only from derived classes.
+- Not accessible from outside the assembly, even if inherited.
+
+### Example
+```csharp
+public class Base
+{
+    protected internal int A; // Accessible in same assembly and in derived classes (any assembly)
+    private protected int B;  // Accessible in same assembly, only in derived classes
+}
+
+public class Derived : Base
+{
+    void Test()
+    {
+        A = 1; // OK
+        B = 2; // OK (same assembly)
+    }
+}
+
+// In another assembly:
+public class Other : Base
+{
+    void Test()
+    {
+        A = 1; // OK (protected internal)
+        // B = 2; // Error: not accessible (private protected)
+    }
+}
+```
+
+---
+
+## Difference Between `throw` and `throw ex` in C#
+
+### `throw`
+- Re-throws the current exception while preserving the original stack trace.
+- Best practice for re-throwing exceptions in a catch block.
+- Example:
+  ```csharp
+  try
+  {
+      // ... code ...
+  }
+  catch (Exception ex)
+  {
+      // ... logging or cleanup ...
+      throw; // Preserves original stack trace
+  }
+  ```
+
+### `throw ex`
+- Throws the caught exception object, but **resets the stack trace** to the current line.
+- Makes debugging harder because you lose the original error location.
+- Example:
+  ```csharp
+  try
+  {
+      // ... code ...
+  }
+  catch (Exception ex)
+  {
+      // ... logging or cleanup ...
+      throw ex; // Resets stack trace (not recommended)
+  }
+  ```
+
+### Summary
+- Use `throw` to preserve the original stack trace (recommended).
+- Avoid `throw ex` unless you have a specific reason to reset the stack trace (rarely needed).
+
+---
+
+## Optimizing Bulk Updates: Changing Department for 1000 Employees
+
+When you need to update a field (like department) for many records, making 1000 separate database calls is inefficient. Instead, use a bulk update approach.
+
+### Entity Framework (EF Core)
+- **Recommended:** Use a single query to update all records in one call.
+- **Example (EF Core 7+):**
+  ```csharp
+  // Update all employees with IDs in the list to a new department
+  var employeeIds = new List<int> { /* 1000 IDs */ };
+  int newDeptId = 5;
+  await dbContext.Employees
+      .Where(e => employeeIds.Contains(e.Id))
+      .ExecuteUpdateAsync(e => e.SetProperty(emp => emp.DepartmentId, newDeptId));
+  ```
+- **Older EF Core:**
+  - Load all employees, update in memory, then call `SaveChanges()` (still one DB call, but less efficient for very large sets):
+    ```csharp
+    var employees = dbContext.Employees.Where(e => employeeIds.Contains(e.Id)).ToList();
+    foreach (var emp in employees)
+        emp.DepartmentId = newDeptId;
+    dbContext.SaveChanges();
+    ```
+
+### ADO.NET
+- **Recommended:** Use a single `UPDATE` SQL statement with a `WHERE` clause.
+- **Example:**
+  ```sql
+  UPDATE Employees
+  SET DepartmentId = @DeptId
+  WHERE Id IN (SELECT Id FROM @Ids);
+  ```
+- **ADO.NET Code:**
+  ```csharp
+  using var cmd = new SqlCommand("UPDATE Employees SET DepartmentId = @DeptId WHERE Id IN (SELECT Id FROM @Ids)", connection);
+  cmd.Parameters.AddWithValue("@DeptId", newDeptId);
+
+  var tvpParam = cmd.Parameters.AddWithValue("@Ids", idTable);
+  tvpParam.SqlDbType = SqlDbType.Structured;
+  tvpParam.TypeName = "dbo.IdList";
+
+  cmd.ExecuteNonQuery();
+  ```
+
+### ADO.NET with Table-Valued Parameter (TVP) for Bulk Update (SQL Server)
+For very large sets of IDs, use a Table-Valued Parameter (TVP) to pass the list efficiently:
+
+**1. Define a User-Defined Table Type in SQL Server:**
+```sql
+CREATE TYPE dbo.IdList AS TABLE (Id INT);
+```
+
+**2. Update Statement Using TVP:**
+```sql
+UPDATE Employees
+SET DepartmentId = @DeptId
+WHERE Id IN (SELECT Id FROM @Ids);
+```
+
+**3. ADO.NET Code to Use TVP:**
+```csharp
+// Prepare DataTable for TVP
+var idTable = new DataTable();
+idTable.Columns.Add("Id", typeof(int));
+foreach (var id in employeeIds)
+    idTable.Rows.Add(id);
+
+using var cmd = new SqlCommand("UPDATE Employees SET DepartmentId = @DeptId WHERE Id IN (SELECT Id FROM @Ids)", connection);
+cmd.Parameters.AddWithValue("@DeptId", newDeptId);
+
+var tvpParam = cmd.Parameters.AddWithValue("@Ids", idTable);
+tvpParam.SqlDbType = SqlDbType.Structured;
+tvpParam.TypeName = "dbo.IdList";
+
+cmd.ExecuteNonQuery();
+```
+
+**Summary:**
+- TVPs are efficient for passing large lists to SQL Server.
+- Reduces SQL injection risk and avoids string manipulation for ID lists.
+
+---
